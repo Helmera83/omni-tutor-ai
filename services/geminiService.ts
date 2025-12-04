@@ -3,7 +3,7 @@ import { AnalysisResult, Message, Material } from "../types";
 
 // Helper to get API key safely and validate it
 const getApiKey = () => {
-  const apiKey = process.env.API_KEY || '';
+  const apiKey = process.env.GEMINI_API_KEY || '';
   if (!apiKey || apiKey === 'undefined' || apiKey === 'null') {
     console.error('GEMINI_API_KEY is not configured. Please set it in your environment variables.');
   }
