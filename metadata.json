@@ -1,0 +1,7 @@
+{
+  "name": "OmniTutor AI",
+  "description": "An all-in-one AI educational tutor that analyzes videos, documents, audio, and web topics to provide comprehensive summaries and audio explanations.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
