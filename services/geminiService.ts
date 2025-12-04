@@ -1,8 +1,14 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import { AnalysisResult, Message, Material } from "../types";
 
-// Helper to get API key safely
-const getApiKey = () => process.env.API_KEY || '';
+// Helper to get API key safely and validate it
+const getApiKey = () => {
+  const apiKey = process.env.GEMINI_API_KEY || '';
+  if (!apiKey || apiKey === 'undefined' || apiKey === 'null') {
+    console.error('GEMINI_API_KEY is not configured. Please set it in your environment variables.');
+  }
+  return apiKey;
+};
 
 // Initialize client
 const ai = new GoogleGenAI({ apiKey: getApiKey() });
@@ -61,9 +67,19 @@ export async function generateSpeech(text: string): Promise<string | null> {
 
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     return base64Audio || null;
-  } catch (error) {
+  } catch (error: any) {
     console.error("TTS Error:", error);
-    throw error;
+    
+    // Provide more helpful error messages
+    if (!getApiKey()) {
+      throw new Error("API key not configured. Please set GEMINI_API_KEY environment variable.");
+    }
+    
+    if (error?.message) {
+      throw new Error(`Failed to generate speech: ${error.message}`);
+    }
+    
+    throw new Error("Failed to generate speech. Please check your API key configuration and try again.");
   }
 }
 
@@ -113,9 +129,19 @@ export async function chatWithCourseAgent(
     }
 
     return text;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Chat Error:", error);
-    throw error;
+    
+    // Provide more helpful error messages
+    if (!getApiKey()) {
+      throw new Error("API key not configured. Please set GEMINI_API_KEY environment variable.");
+    }
+    
+    if (error?.message) {
+      throw new Error(`Chat error: ${error.message}`);
+    }
+    
+    throw new Error("Failed to send message. Please check your API key configuration and try again.");
   }
 }
 
@@ -163,9 +189,19 @@ export async function generateCourseSynthesis(materials: Material[], courseTitle
     });
 
     return response.text || "Could not generate synthesis.";
-  } catch (error) {
+  } catch (error: any) {
     console.error("Synthesis Error:", error);
-    throw error;
+    
+    // Provide more helpful error messages
+    if (!getApiKey()) {
+      throw new Error("API key not configured. Please set GEMINI_API_KEY environment variable.");
+    }
+    
+    if (error?.message) {
+      throw new Error(`Failed to generate synthesis: ${error.message}`);
+    }
+    
+    throw new Error("Failed to generate synthesis. Please check your API key configuration and try again.");
   }
 }
 
@@ -196,9 +232,19 @@ export async function analyzeVideo(base64Data: string, mimeType: string, prompt:
     return {
       text: response.text || "No analysis generated.",
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Video Analysis Error:", error);
-    throw error;
+    
+    // Provide more helpful error messages
+    if (!getApiKey()) {
+      throw new Error("API key not configured. Please set GEMINI_API_KEY environment variable.");
+    }
+    
+    if (error?.message) {
+      throw new Error(`Failed to analyze video: ${error.message}`);
+    }
+    
+    throw new Error("Failed to analyze video. Please check your API key configuration and try again.");
   }
 }
 
@@ -229,9 +275,19 @@ export async function analyzeAudio(base64Data: string, mimeType: string, prompt:
     return {
       text: response.text || "No transcription generated.",
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Audio Analysis Error:", error);
-    throw error;
+    
+    // Provide more helpful error messages
+    if (!getApiKey()) {
+      throw new Error("API key not configured. Please set GEMINI_API_KEY environment variable.");
+    }
+    
+    if (error?.message) {
+      throw new Error(`Failed to analyze audio: ${error.message}`);
+    }
+    
+    throw new Error("Failed to analyze audio. Please check your API key configuration and try again.");
   }
 }
 
@@ -266,9 +322,19 @@ export async function researchWebTopic(query: string, courseContext?: string): P
       text: response.text || "No result found.",
       groundingMetadata: { groundingChunks: mappedChunks },
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Web Research Error:", error);
-    throw error;
+    
+    // Provide more helpful error messages
+    if (!getApiKey()) {
+      throw new Error("API key not configured. Please set GEMINI_API_KEY environment variable.");
+    }
+    
+    if (error?.message) {
+      throw new Error(`Failed to research topic: ${error.message}`);
+    }
+    
+    throw new Error("Failed to research topic. Please check your API key configuration and try again.");
   }
 }
 
@@ -310,8 +376,18 @@ export async function analyzeDocument(
     return {
       text: response.text || "No analysis generated.",
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Document Analysis Error:", error);
-    throw error;
+    
+    // Provide more helpful error messages
+    if (!getApiKey()) {
+      throw new Error("API key not configured. Please set GEMINI_API_KEY environment variable.");
+    }
+    
+    if (error?.message) {
+      throw new Error(`Failed to analyze document: ${error.message}`);
+    }
+    
+    throw new Error("Failed to analyze document. Please check your API key configuration and try again.");
   }
 }
