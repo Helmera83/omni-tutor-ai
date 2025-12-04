@@ -80,6 +80,7 @@ export async function chatWithCourseAgent(
       model: 'gemini-2.5-flash',
       config: {
         systemInstruction: systemInstruction,
+        tools: [{ googleSearch: {} }], // Enable Google Search Grounding
       },
       history: history.map(h => ({
         role: h.role,
@@ -88,7 +89,30 @@ export async function chatWithCourseAgent(
     });
 
     const response = await chat.sendMessage({ message: newMessage });
-    return response.text || "I couldn't generate a response.";
+    let text = response.text || "I couldn't generate a response.";
+
+    // Extract and append grounding sources if available
+    const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+    if (groundingChunks) {
+      const uniqueLinks = new Map<string, string>();
+      
+      // Collect unique web sources
+      groundingChunks.forEach((chunk: any) => {
+        if (chunk.web?.uri && chunk.web?.title) {
+          uniqueLinks.set(chunk.web.uri, chunk.web.title);
+        }
+      });
+
+      // Append sources to text in Markdown format
+      if (uniqueLinks.size > 0) {
+        text += "\n\n**Search Sources:**\n";
+        uniqueLinks.forEach((title, uri) => {
+          text += `- [${title}](${uri})\n`;
+        });
+      }
+    }
+
+    return text;
   } catch (error) {
     console.error("Chat Error:", error);
     throw error;

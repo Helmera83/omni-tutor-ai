@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import CoursePage from './components/CoursePage';
@@ -31,6 +32,9 @@ const App: React.FC = () => {
   const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
+
+  // Mobile Sidebar State
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Load courses from local storage
   useEffect(() => {
@@ -143,6 +147,16 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-[#0f1115] overflow-hidden font-sans text-[#e2e2e6]">
+      {/* Mobile Menu Button - Visible only on small screens */}
+      <div className="lg:hidden fixed top-4 left-4 z-50">
+        <button 
+          onClick={() => setMobileMenuOpen(true)}
+          className="p-2 bg-[#252a30] text-slate-300 rounded-full border border-white/10 shadow-lg"
+        >
+          <GraduationCap className="w-6 h-6" />
+        </button>
+      </div>
+
       <Sidebar 
         selectedCourse={selectedCourse}
         onBackToDashboard={() => setSelectedCourseId(null)}
@@ -152,21 +166,25 @@ const App: React.FC = () => {
         onOpenSettings={() => setShowSettingsModal(true)}
         onLogout={handleLogout}
         userName={userName}
+        mobileOpen={mobileMenuOpen}
+        setMobileOpen={setMobileMenuOpen}
       />
       
       <main className="flex-1 flex flex-col h-full overflow-hidden relative">
         {selectedCourse ? (
-          <div className="flex-1 p-2 lg:p-4 h-full overflow-hidden">
+          <div className="flex-1 p-0 lg:p-4 h-full overflow-hidden pt-16 lg:pt-4">
              <CoursePage key={selectedCourse.id} course={selectedCourse} />
           </div>
         ) : (
-          <Dashboard 
-            courses={courses} 
-            onSelect={(c) => setSelectedCourseId(c.id)} 
-            onAdd={() => setShowAddModal(true)}
-            onDelete={handleDeleteCourse}
-            userName={userName}
-          />
+          <div className="flex-1 h-full overflow-hidden pt-16 lg:pt-0">
+            <Dashboard 
+              courses={courses} 
+              onSelect={(c) => setSelectedCourseId(c.id)} 
+              onAdd={() => setShowAddModal(true)}
+              onDelete={handleDeleteCourse}
+              userName={userName}
+            />
+          </div>
         )}
       </main>
 
@@ -363,27 +381,27 @@ const Dashboard: React.FC<DashboardProps> = ({ courses, onSelect, onAdd, onDelet
         <p className="text-slate-500">Select a course to continue your learning journey</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-20">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
         {courses.map((course) => (
           <div 
             key={course.id}
             onClick={() => onSelect(course)}
-            className="group relative bg-[#1a1c20] hover:bg-[#252a30] rounded-[32px] transition-all duration-300 cursor-pointer overflow-hidden flex flex-col h-[320px] hover:shadow-2xl hover:shadow-black/50 border border-white/5 hover:border-white/10"
+            className="group relative bg-[#1a1c20] hover:bg-[#252a30] rounded-[24px] transition-all duration-300 cursor-pointer overflow-hidden flex flex-col h-[260px] hover:shadow-2xl hover:shadow-black/50 border border-white/5 hover:border-white/10"
           >
-            <div className={`h-32 ${course.color} w-full opacity-90 group-hover:opacity-100 transition-opacity relative overflow-hidden`}>
+            <div className={`h-28 ${course.color} w-full opacity-90 group-hover:opacity-100 transition-opacity relative overflow-hidden`}>
                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
-               <div className="absolute bottom-6 left-8 bg-black/30 backdrop-blur-md p-3 rounded-2xl text-white border border-white/10">
-                  <BookOpen className="w-8 h-8" />
+               <div className="absolute bottom-4 left-6 bg-black/30 backdrop-blur-md p-2.5 rounded-xl text-white border border-white/10">
+                  <BookOpen className="w-6 h-6" />
                </div>
             </div>
             
-            <div className="p-8 flex-1 flex flex-col">
-              <h3 className="text-2xl font-medium text-slate-100 mb-3 line-clamp-1">{course.title}</h3>
-              <p className="text-slate-400 text-base leading-relaxed line-clamp-2 mb-6 flex-1">
+            <div className="p-6 flex-1 flex flex-col">
+              <h3 className="text-xl font-medium text-slate-100 mb-2 line-clamp-1">{course.title}</h3>
+              <p className="text-slate-400 text-sm leading-relaxed line-clamp-2 mb-4 flex-1">
                 {course.description || "No description provided."}
               </p>
               
-              <div className="flex items-center text-sm font-bold tracking-wide text-indigo-400 uppercase mt-auto group-hover:underline decoration-2 underline-offset-4">
+              <div className="flex items-center text-xs font-bold tracking-wide text-indigo-400 uppercase mt-auto group-hover:underline decoration-2 underline-offset-4">
                 Enter Course <span className="inline-block transition-transform group-hover:translate-x-1 ml-1">&rarr;</span>
               </div>
             </div>
@@ -392,12 +410,12 @@ const Dashboard: React.FC<DashboardProps> = ({ courses, onSelect, onAdd, onDelet
 
         <button 
           onClick={onAdd}
-          className="bg-[#1a1c20] rounded-[32px] border-2 border-dashed border-slate-800 hover:border-indigo-500/50 hover:bg-indigo-500/10 transition-all cursor-pointer flex flex-col items-center justify-center h-[320px] group"
+          className="bg-[#1a1c20] rounded-[24px] border-2 border-dashed border-slate-800 hover:border-indigo-500/50 hover:bg-indigo-500/10 transition-all cursor-pointer flex flex-col items-center justify-center h-[260px] group"
         >
-          <div className="w-20 h-20 rounded-3xl bg-[#252a30] text-indigo-300 group-hover:bg-indigo-600 group-hover:text-white flex items-center justify-center mb-6 transition-all duration-300 shadow-sm group-hover:shadow-indigo-900 group-hover:shadow-lg">
-            <Plus className="w-10 h-10" />
+          <div className="w-16 h-16 rounded-2xl bg-[#252a30] text-indigo-300 group-hover:bg-indigo-600 group-hover:text-white flex items-center justify-center mb-4 transition-all duration-300 shadow-sm group-hover:shadow-indigo-900 group-hover:shadow-lg">
+            <Plus className="w-8 h-8" />
           </div>
-          <span className="font-medium text-lg text-slate-500 group-hover:text-indigo-400">Create New Agent</span>
+          <span className="font-medium text-base text-slate-500 group-hover:text-indigo-400">Create New Agent</span>
         </button>
       </div>
     </div>

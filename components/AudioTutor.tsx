@@ -18,7 +18,7 @@ const AudioTutor: React.FC<AudioTutorProps> = ({ course }) => {
   const [error, setError] = useState<string | null>(null);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -50,7 +50,7 @@ const AudioTutor: React.FC<AudioTutorProps> = ({ course }) => {
       setError(null);
       setResult(null);
 
-      timerRef.current = setInterval(() => {
+      timerRef.current = window.setInterval(() => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
 

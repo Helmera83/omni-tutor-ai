@@ -567,7 +567,9 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
       ${course.description ? `Description: ${course.description}` : ''}
       
       Your goal is to help the student master this subject. 
-      Use the provided KNOWLEDGE BASE below to answer questions. If the answer is not in the knowledge base, use your general knowledge but mention that it's general info.
+      Use the provided KNOWLEDGE BASE below to answer questions. 
+      
+      If the answer is not found in the knowledge base, you have access to Google Search to find up-to-date information. Use it to supplement your answers when necessary.
       
       CRITICAL CITATION RULE:
       When you derive an answer from a specific material in the Knowledge Base, you MUST cite the source title in bold brackets at the end of the sentence or paragraph.
