@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, User, Bot, Loader2, Video, Mic, FileText, Globe, Plus, X, ChevronRight, PlayCircle, LayoutGrid, MessageSquare, Calendar, Trash2, Download, Folder, ChevronDown, ArrowLeft, Sparkles, Clock, MessageSquarePlus, FileUp, Volume2, VolumeX, FileStack, Edit2, Check, MoreVertical } from 'lucide-react';
+import { Send, User, Bot, Loader2, Video, Mic, FileText, Globe, Plus, X, ChevronRight, PlayCircle, LayoutGrid, MessageSquare, Calendar, Trash2, Download, Folder, ChevronDown, ArrowLeft, Sparkles, Clock, MessageSquarePlus, FileUp, Volume2, VolumeX, FileStack, Edit2, Check, MoreVertical, Brain } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { Course, Message, Material, ChatSession } from '../types';
-import { chatWithCourseAgent, analyzeVideo, analyzeAudio, analyzeDocument, researchWebTopic, generateCourseSynthesis, generateSpeech, decodeAudioData, generateChatTitle } from '../services/geminiService';
+import { Course, Message, Material, ChatSession, PersistentMemory } from '../types';
+import { chatWithCourseAgent, analyzeVideo, analyzeAudio, analyzeDocument, researchWebTopic, generateCourseSynthesis, generateSpeech, decodeAudioData, generateChatTitle, generateMemorySummary } from '../services/geminiService';
 
 interface CoursePageProps {
   course: Course;
@@ -15,7 +15,7 @@ const DEFAULT_FOLDERS = [
 ];
 
 const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
-  const [activeTab, setActiveTab] = useState<'chat' | 'overview' | 'materials'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'overview' | 'materials' | 'memory'>('chat');
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
 
   // Folder Navigation State
@@ -37,6 +37,17 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
     return localStorage.getItem(`omnitutor_synthesis_${course.id}`) || '';
   });
   const [isGeneratingSynthesis, setIsGeneratingSynthesis] = useState(false);
+
+  // --- Persistent Memory State ---
+  const [persistentMemories, setPersistentMemories] = useState<PersistentMemory[]>(() => {
+    const saved = localStorage.getItem(`omnitutor_memory_${course.id}`);
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [isGeneratingMemory, setIsGeneratingMemory] = useState(false);
+  const [memoryEnabled, setMemoryEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem(`omnitutor_memory_enabled_${course.id}`);
+    return saved ? JSON.parse(saved) : true; // Enabled by default
+  });
 
   // --- Session Management ---
   const [sessions, setSessions] = useState<ChatSession[]>(() => {
@@ -194,6 +205,14 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
     localStorage.setItem(`omnitutor_folders_${course.id}`, JSON.stringify(folders));
   }, [folders, course.id]);
 
+  useEffect(() => {
+    localStorage.setItem(`omnitutor_memory_${course.id}`, JSON.stringify(persistentMemories));
+  }, [persistentMemories, course.id]);
+
+  useEffect(() => {
+    localStorage.setItem(`omnitutor_memory_enabled_${course.id}`, JSON.stringify(memoryEnabled));
+  }, [memoryEnabled, course.id]);
+
   // Ensure target folder is valid if folders change
   useEffect(() => {
     if (folders.length > 0 && !folders.includes(targetFolder)) {
@@ -310,6 +329,75 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
         setIsGeneratingSynthesis(false);
     }
   };
+
+  const handleGenerateMemory = async () => {
+    // Find old sessions that haven't been summarized yet (more than 1 day old and not current)
+    const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+    const sessionsToSummarize = sessions.filter(s => 
+      s.id !== activeSessionId && 
+      s.lastModified < oneDayAgo && 
+      !s.summarized &&
+      s.messages.filter(m => m.role === 'user').length > 0 // Has at least one user message
+    );
+
+    if (sessionsToSummarize.length === 0) {
+      alert("No old sessions available to summarize. Sessions older than 1 day will be automatically converted to persistent memory.");
+      return;
+    }
+
+    setIsGeneratingMemory(true);
+    try {
+      const memory = await generateMemorySummary(sessionsToSummarize, course.title);
+      if (memory) {
+        setPersistentMemories(prev => [memory, ...prev]);
+        // Mark sessions as summarized
+        setSessions(prev => prev.map(s => 
+          sessionsToSummarize.find(ts => ts.id === s.id) 
+            ? { ...s, summarized: true } 
+            : s
+        ));
+      }
+    } catch (e) {
+      alert("Failed to generate memory summary");
+    } finally {
+      setIsGeneratingMemory(false);
+    }
+  };
+
+  // Auto-generate memory from old sessions periodically
+  useEffect(() => {
+    if (!memoryEnabled) return;
+    
+    const checkAndGenerateMemory = async () => {
+      const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+      const sessionsToSummarize = sessions.filter(s => 
+        s.id !== activeSessionId && 
+        s.lastModified < oneDayAgo && 
+        !s.summarized &&
+        s.messages.filter(m => m.role === 'user').length > 0
+      );
+
+      // Auto-generate if we have 3 or more old unsummarized sessions
+      if (sessionsToSummarize.length >= 3 && !isGeneratingMemory) {
+        console.log("Auto-generating persistent memory from old sessions...");
+        try {
+          const memory = await generateMemorySummary(sessionsToSummarize.slice(0, 5), course.title);
+          if (memory) {
+            setPersistentMemories(prev => [memory, ...prev]);
+            setSessions(prev => prev.map(s => 
+              sessionsToSummarize.slice(0, 5).find(ts => ts.id === s.id) 
+                ? { ...s, summarized: true } 
+                : s
+            ));
+          }
+        } catch (e) {
+          console.error("Auto memory generation failed:", e);
+        }
+      }
+    };
+
+    checkAndGenerateMemory();
+  }, [sessions, activeSessionId, memoryEnabled, course.title, isGeneratingMemory]);
 
   const handleNewChat = () => {
     const newId = Date.now().toString();
@@ -575,8 +663,27 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
       When you derive an answer from a specific material in the Knowledge Base, you MUST cite the source title in bold brackets at the end of the sentence or paragraph.
       Format: **[Material Title]**
       Example: "The mitochondria is the powerhouse of the cell **[Lecture 1 Video]**."
-      
-      === KNOWLEDGE BASE (Analyzed Course Materials) ===
+      `;
+
+      // Add persistent memory context if enabled and available
+      if (memoryEnabled && persistentMemories.length > 0) {
+        contextString += `\n\n=== PERSISTENT MEMORY (Previous Learning Context) ===
+        
+You have access to summaries of past tutoring sessions with this student. Use this information to:
+- Build on previous discussions and learning
+- Reference topics the student has already studied
+- Provide continuity in the learning journey
+- Address areas where the student showed confusion in the past
+
+`;
+        persistentMemories.slice(0, 3).forEach((memory, idx) => {
+          contextString += `\n--- Past Session Summary ${idx + 1} ---`;
+          contextString += `\nTopics: ${memory.topics.join(', ')}`;
+          contextString += `\n${memory.summary}\n`;
+        });
+      }
+
+      contextString += `\n\n=== KNOWLEDGE BASE (Analyzed Course Materials) ===
       `;
 
       if (materials.length === 0) {
@@ -735,6 +842,22 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
               </div>
               
               <div className="flex items-center gap-3 hidden lg:flex">
+                {/* Memory Toggle */}
+                <button
+                  onClick={() => setMemoryEnabled(!memoryEnabled)}
+                  className={`px-4 py-2 rounded-full transition-colors text-sm font-medium flex items-center gap-2 border ${
+                    memoryEnabled 
+                      ? 'text-purple-300 bg-purple-500/20 hover:bg-purple-500/30 border-purple-500/20' 
+                      : 'text-slate-400 bg-slate-500/10 hover:bg-slate-500/20 border-slate-500/20'
+                  }`}
+                  title={memoryEnabled ? "Persistent Memory: ON" : "Persistent Memory: OFF"}
+                >
+                   <Brain className={`w-4 h-4 ${memoryEnabled ? 'animate-pulse' : ''}`} /> 
+                   Memory {memoryEnabled ? 'ON' : 'OFF'}
+                   {persistentMemories.length > 0 && (
+                     <span className="ml-1 bg-purple-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{persistentMemories.length}</span>
+                   )}
+                </button>
                 <button
                   onClick={handleNewChat}
                   className="px-4 py-2 text-indigo-300 bg-indigo-500/20 hover:bg-indigo-500/30 rounded-full transition-colors text-sm font-medium flex items-center gap-2 border border-indigo-500/20"
@@ -786,6 +909,20 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
                 <FileStack className="w-4 h-4" />
                 Knowledge Base
                 <span className="ml-1 bg-white/10 text-slate-300 text-[10px] px-1.5 py-0.5 rounded-full">{materials.length}</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('memory')}
+                className={`flex-shrink-0 flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold transition-all ${
+                  activeTab === 'memory' 
+                    ? 'bg-[#252a30] text-indigo-200 shadow-sm ring-1 ring-white/10' 
+                    : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'
+                }`}
+              >
+                <Brain className="w-4 h-4" />
+                Memory
+                {persistentMemories.length > 0 && (
+                  <span className="ml-1 bg-purple-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{persistentMemories.length}</span>
+                )}
               </button>
           </div>
         </div>
@@ -902,6 +1039,13 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
 
               {/* Chat Input Area */}
               <div className="p-4 lg:p-6 bg-[#1a1c20] border-t border-white/5">
+                 {/* Memory Status Indicator */}
+                 {memoryEnabled && persistentMemories.length > 0 && (
+                   <div className="mb-3 flex items-center gap-2 text-xs text-purple-400 bg-purple-500/10 px-3 py-2 rounded-full w-fit border border-purple-500/20">
+                     <Brain className="w-3.5 h-3.5" />
+                     <span>Using {persistentMemories.length} memory {persistentMemories.length === 1 ? 'summary' : 'summaries'} from past sessions</span>
+                   </div>
+                 )}
                  <form onSubmit={handleSendMessage} className="relative flex items-end gap-2">
                    
                    {/* Attach Button & Menu */}
@@ -1212,6 +1356,94 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
                         </div>
                       );
                     })}
+                  </div>
+                )}
+             </div>
+        </div>
+
+        {/* Content Area - Memory */}
+        <div className={`flex-1 overflow-y-auto bg-[#0f1115] m-2 rounded-[24px] p-6 lg:p-10 ${activeTab === 'memory' ? 'block' : 'hidden'}`}>
+             <div className="max-w-4xl mx-auto">
+                <div className="mb-8">
+                  <h3 className="text-3xl font-normal text-slate-200 mb-2 flex items-center gap-3">
+                    <Brain className="w-8 h-8 text-purple-500" />
+                    Persistent Memory
+                  </h3>
+                  <p className="text-slate-500 text-lg mb-4">
+                    AI-generated summaries of past learning sessions. These provide context for future conversations.
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={handleGenerateMemory}
+                      disabled={isGeneratingMemory}
+                      className="bg-purple-600 text-white px-6 py-3 rounded-full hover:bg-purple-700 font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {isGeneratingMemory ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                      Generate Memory from Old Sessions
+                    </button>
+                    <div className={`px-4 py-2 rounded-full border ${memoryEnabled ? 'bg-purple-500/20 border-purple-500/20 text-purple-300' : 'bg-slate-500/10 border-slate-500/20 text-slate-400'}`}>
+                      Status: {memoryEnabled ? 'Active' : 'Disabled'}
+                    </div>
+                  </div>
+                </div>
+
+                {persistentMemories.length === 0 ? (
+                  <div className="text-center py-24 bg-[#1a1c20] rounded-[32px] border border-dashed border-slate-700">
+                      <div className="w-20 h-20 bg-purple-500/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+                        <Brain className="w-10 h-10 text-purple-400" />
+                      </div>
+                      <h4 className="text-xl font-medium text-slate-300 mb-2">No Persistent Memories Yet</h4>
+                      <p className="text-slate-500 max-w-md mx-auto">Memories are automatically generated from old chat sessions (older than 1 day). You can also manually generate them using the button above.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {persistentMemories.map((memory) => (
+                      <div key={memory.id} className="bg-[#1a1c20] rounded-[24px] overflow-hidden border border-purple-500/20 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="p-6 border-b border-white/5 bg-gradient-to-r from-purple-500/10 to-transparent">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-purple-500/20 rounded-lg">
+                                <Brain className="w-5 h-5 text-purple-400" />
+                              </div>
+                              <div>
+                                <p className="text-sm text-slate-400">Memory Summary</p>
+                                <p className="text-xs text-slate-500 flex items-center gap-2 mt-1">
+                                  <Clock className="w-3 h-3" />
+                                  {new Date(memory.timestamp).toLocaleDateString()} at {new Date(memory.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => {
+                                if (confirm("Delete this memory summary?")) {
+                                  setPersistentMemories(prev => prev.filter(m => m.id !== memory.id));
+                                }
+                              }}
+                              className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-full transition-colors"
+                              title="Delete Memory"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                          
+                          {memory.topics.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {memory.topics.map((topic, idx) => (
+                                <span key={idx} className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/20">
+                                  {topic}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="p-6">
+                          <div className="prose prose-invert prose-sm max-w-none text-slate-300">
+                            <ReactMarkdown>{memory.summary}</ReactMarkdown>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
              </div>

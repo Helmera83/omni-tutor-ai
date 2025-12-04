@@ -1,5 +1,5 @@
 import { GoogleGenAI, Modality } from "@google/genai";
-import { AnalysisResult, Message, Material } from "../types";
+import { AnalysisResult, Message, Material, ChatSession, PersistentMemory } from "../types";
 
 // Helper to get API key safely
 const getApiKey = () => process.env.API_KEY || '';
@@ -269,6 +269,68 @@ export async function researchWebTopic(query: string, courseContext?: string): P
   } catch (error) {
     console.error("Web Research Error:", error);
     throw error;
+  }
+}
+
+/**
+ * Generate a persistent memory summary from old chat sessions
+ */
+export async function generateMemorySummary(sessions: ChatSession[], courseTitle: string): Promise<PersistentMemory | null> {
+  try {
+    if (sessions.length === 0) return null;
+
+    // Combine all messages from the sessions
+    const conversationText = sessions.map(session => {
+      const msgs = session.messages.map(m => 
+        `${m.role === 'user' ? 'Student' : 'AI'}: ${m.content}`
+      ).join('\n');
+      return `Session: "${session.title}"\n${msgs}`;
+    }).join('\n\n---\n\n');
+
+    const prompt = `You are analyzing past tutoring conversations for the course "${courseTitle}".
+    
+    Please create a concise persistent memory summary that captures:
+    1. Key concepts and topics the student has learned about
+    2. Important questions the student has asked
+    3. Areas where the student showed understanding or confusion
+    4. Any significant insights or breakthroughs
+    5. Relevant context that would help in future tutoring sessions
+    
+    Format your response as a structured summary that can be used as context for future conversations.
+    Be concise but comprehensive. Focus on educational content and learning progress.
+    
+    Past Conversations:
+    ${conversationText}
+    
+    Provide the summary in a clear, structured format.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: { parts: [{ text: prompt }] },
+    });
+
+    const summary = response.text || "No summary generated.";
+    
+    // Extract topics using a simple approach
+    const topicsPrompt = `From this conversation summary, extract 3-5 key topics as a comma-separated list (just the topic names, no explanations):\n\n${summary}`;
+    const topicsResponse = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: { parts: [{ text: topicsPrompt }] },
+    });
+    
+    const topicsText = topicsResponse.text || "";
+    const topics = topicsText.split(',').map(t => t.trim()).filter(t => t.length > 0).slice(0, 5);
+
+    return {
+      id: Date.now().toString(),
+      summary,
+      topics,
+      timestamp: Date.now(),
+      sessionIds: sessions.map(s => s.id)
+    };
+  } catch (error) {
+    console.error("Memory Summary Error:", error);
+    return null;
   }
 }
 

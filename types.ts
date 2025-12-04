@@ -44,6 +44,15 @@ export interface ChatSession {
   title: string;
   messages: Message[];
   lastModified: number;
+  summarized?: boolean; // Track if session has been summarized for memory
+}
+
+export interface PersistentMemory {
+  id: string;
+  summary: string; // AI-generated summary of conversation
+  topics: string[]; // Key topics discussed
+  timestamp: number;
+  sessionIds: string[]; // Original session IDs that were summarized
 }
 
 export type FileInput = {
