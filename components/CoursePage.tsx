@@ -271,6 +271,13 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
 
   const handleDeleteFolder = (folder: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    // Prevent deletion of the last folder
+    if (folders.length <= 1) {
+      alert("You must have at least one folder. Create a new folder before deleting this one.");
+      return;
+    }
+    
     if (confirm(`Are you sure you want to delete "${folder}" and all its contents? This action cannot be undone.`)) {
        // Remove folder
        setFolders(prev => prev.filter(f => f !== folder));
@@ -278,6 +285,19 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
        setMaterials(prev => prev.filter(m => m.folder !== folder));
        // Cleanup expanded state
        setExpandedFolders(prev => prev.filter(f => f !== folder));
+       
+       // Update targetFolder if it was the deleted folder
+       if (targetFolder === folder) {
+         const remainingFolders = folders.filter(f => f !== folder);
+         if (remainingFolders.length > 0) {
+           setTargetFolder(remainingFolders[0]);
+         }
+       }
+       
+       // Update currentFolderView if viewing the deleted folder
+       if (currentFolderView === folder) {
+         setCurrentFolderView(null);
+       }
     }
   };
 
@@ -399,8 +419,15 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
   };
 
   const processVideo = async (file: File) => {
+    // Ensure we have a valid target folder
+    const validFolder = folders.includes(targetFolder) ? targetFolder : folders[0];
+    if (!validFolder) {
+      alert("No folders available. Please create a folder first.");
+      return;
+    }
+    
     setUploading(true);
-    setUploadStatus(`Analyzing video for ${targetFolder}: ${file.name}...`);
+    setUploadStatus(`Analyzing video for ${validFolder}: ${file.name}...`);
     try {
       const base64 = await fileToBase64(file);
       // Pass full course context (Title + Description) to AI
@@ -410,7 +437,7 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
         "Provide a comprehensive summary of this video for a student.", 
         `${course.title}: ${course.description}`
       );
-      addMaterial('video', file.name, result.text, targetFolder);
+      addMaterial('video', file.name, result.text, validFolder);
     } catch (error) {
       console.error(error);
       alert("Failed to analyze video.");
@@ -421,8 +448,15 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
   };
 
   const processAudio = async (file: File) => {
+    // Ensure we have a valid target folder
+    const validFolder = folders.includes(targetFolder) ? targetFolder : folders[0];
+    if (!validFolder) {
+      alert("No folders available. Please create a folder first.");
+      return;
+    }
+    
     setUploading(true);
-    setUploadStatus(`Transcribing audio for ${targetFolder}: ${file.name}...`);
+    setUploadStatus(`Transcribing audio for ${validFolder}: ${file.name}...`);
     try {
       const base64 = await fileToBase64(file);
       const mimeType = file.type || 'audio/mp3'; 
@@ -433,7 +467,7 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
         "Transcribe and summarize this audio.", 
         `${course.title}: ${course.description}`
       );
-      addMaterial('audio', file.name, result.text, targetFolder);
+      addMaterial('audio', file.name, result.text, validFolder);
     } catch (error) {
       console.error(error);
       alert("Failed to transcribe audio.");
@@ -444,8 +478,15 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
   };
 
   const processDoc = async (file: File) => {
+    // Ensure we have a valid target folder
+    const validFolder = folders.includes(targetFolder) ? targetFolder : folders[0];
+    if (!validFolder) {
+      alert("No folders available. Please create a folder first.");
+      return;
+    }
+    
     setUploading(true);
-    setUploadStatus(`Analyzing document for ${targetFolder}: ${file.name}...`);
+    setUploadStatus(`Analyzing document for ${validFolder}: ${file.name}...`);
     try {
       const base64 = await fileToBase64(file);
       // Pass full course context (Title + Description) to AI
@@ -456,7 +497,7 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
         "Summarize this document and list key concepts.", 
         `${course.title}: ${course.description}`
       );
-      addMaterial('document', file.name, result.text, targetFolder);
+      addMaterial('document', file.name, result.text, validFolder);
     } catch (error) {
       console.error(error);
       alert("Failed to analyze document.");
@@ -497,14 +538,22 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
     e.preventDefault();
     if (!webQuery.trim()) return;
 
+    // Ensure we have a valid target folder
+    const validFolder = folders.includes(targetFolder) ? targetFolder : folders[0];
+    if (!validFolder) {
+      alert("No folders available. Please create a folder first.");
+      setShowWebModal(false);
+      return;
+    }
+
     setShowWebModal(false);
     setUploading(true);
-    setUploadStatus(`Researching for ${targetFolder}: ${webQuery}...`);
+    setUploadStatus(`Researching for ${validFolder}: ${webQuery}...`);
 
     try {
       // Pass full course context (Title + Description) to AI
       const result = await researchWebTopic(webQuery, `${course.title}: ${course.description}`);
-      addMaterial('web', webQuery, result.text, targetFolder);
+      addMaterial('web', webQuery, result.text, validFolder);
     } catch (error) {
       console.error(error);
       alert("Web research failed.");
