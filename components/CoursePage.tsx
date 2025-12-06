@@ -274,7 +274,7 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
     
     // Prevent deletion of the last folder
     if (folders.length <= 1) {
-      alert("You must have at least one folder. Create a new folder before deleting this one.");
+      alert("Cannot delete the last folder. At least one folder must remain.");
       return;
     }
     
@@ -419,10 +419,10 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
   };
 
   const processVideo = async (file: File) => {
-    // Ensure we have a valid target folder
+    // Ensure we have a valid target folder (defensive check)
     const validFolder = folders.includes(targetFolder) ? targetFolder : folders[0];
     if (!validFolder) {
-      alert("No folders available. Please create a folder first.");
+      alert("Unable to upload file: No folders available. Please refresh the page and try again.");
       return;
     }
     
@@ -448,10 +448,10 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
   };
 
   const processAudio = async (file: File) => {
-    // Ensure we have a valid target folder
+    // Ensure we have a valid target folder (defensive check)
     const validFolder = folders.includes(targetFolder) ? targetFolder : folders[0];
     if (!validFolder) {
-      alert("No folders available. Please create a folder first.");
+      alert("Unable to upload file: No folders available. Please refresh the page and try again.");
       return;
     }
     
@@ -478,10 +478,10 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
   };
 
   const processDoc = async (file: File) => {
-    // Ensure we have a valid target folder
+    // Ensure we have a valid target folder (defensive check)
     const validFolder = folders.includes(targetFolder) ? targetFolder : folders[0];
     if (!validFolder) {
-      alert("No folders available. Please create a folder first.");
+      alert("Unable to upload file: No folders available. Please refresh the page and try again.");
       return;
     }
     
@@ -538,10 +538,10 @@ const CoursePage: React.FC<CoursePageProps> = ({ course }) => {
     e.preventDefault();
     if (!webQuery.trim()) return;
 
-    // Ensure we have a valid target folder
+    // Ensure we have a valid target folder (defensive check)
     const validFolder = folders.includes(targetFolder) ? targetFolder : folders[0];
     if (!validFolder) {
-      alert("No folders available. Please create a folder first.");
+      alert("Unable to research topic: No folders available. Please refresh the page and try again.");
       setShowWebModal(false);
       return;
     }
